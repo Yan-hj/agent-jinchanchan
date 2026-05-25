@@ -27,5 +27,8 @@ Thumbs.db
 .claude/
 .claude/
 
+# Batch files
+*.bat
+
 # Node
 node_modules/
