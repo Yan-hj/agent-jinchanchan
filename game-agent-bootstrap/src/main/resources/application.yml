@@ -1,0 +1,81 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: game-strategy-agent
+
+  profiles:
+    active: dev
+
+  ai:
+    dashscope:
+      api-key: ${DASHSCOPE_API_KEY}
+      chat:
+        options:
+          model: qwen-plus
+      embedding:
+        options:
+          model: text-embedding-v4
+
+    vectorstore:
+      elasticsearch:
+        initialize-schema: true
+        index-name: game-strategy-index
+        dimensions: 1024
+
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/game-agent}
+    elasticsearch:
+      uris: ${ES_URIS:http://localhost:9200}
+
+  jackson:
+    default-property-inclusion: non_null
+    date-format: yyyy-MM-dd'T'HH:mm:ss'Z'
+    time-zone: UTC
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.game.agent: INFO
+    org.springframework.ai: INFO
+    org.springframework.data: WARN
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  ai:
+    dashscope:
+      api-key: ${DASHSCOPE_API_KEY:sk-placeholder}
+
+logging:
+  level:
+    com.game.agent: DEBUG
+    org.springframework.ai: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{traceId}] %-5level %logger{36} - %msg%n"

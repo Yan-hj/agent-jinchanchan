@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.4
+    container_name: game-agent-es
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  mongodb:
+    image: mongo:7.0
+    container_name: game-agent-mongo
+    environment:
+      MONGO_INITDB_DATABASE: game-agent
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  es_data:
+  mongo_data:
