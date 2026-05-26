@@ -18,5 +18,43 @@
             <groupId>com.game</groupId>
             <artifactId>game-agent-common</artifactId>
         </dependency>
+
+        <!-- Jsoup for HTML cleaning -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.19.1</version>
+        </dependency>
+
+        <!-- Spring AI model interfaces (Document, EmbeddingModel, VectorStore) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-model</artifactId>
+            <version>${spring-ai.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-vector-store</artifactId>
+            <version>${spring-ai.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-retry</artifactId>
+            <version>${spring-ai.version}</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <!-- MongoDB (interface definition only, not activated until memory module) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Spring Async support -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
     </dependencies>
 </project>

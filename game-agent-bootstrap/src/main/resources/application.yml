@@ -35,6 +35,11 @@ spring:
     date-format: yyyy-MM-dd'T'HH:mm:ss'Z'
     time-zone: UTC
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
 springdoc:
   api-docs:
     path: /api-docs
@@ -57,6 +62,15 @@ management:
     tags:
       application: ${spring.application.name}
 
+game-agent:
+  ingestion:
+    chunk:
+      size: 512
+      overlap: 64
+    pipeline:
+      embed-enabled: false
+    task-ttl-minutes: 60
+
 logging:
   level:
     com.game.agent: INFO
@@ -68,6 +82,12 @@ spring:
   config:
     activate:
       on-profile: dev
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.mongo.MongoRepositoriesAutoConfiguration
 
   ai:
     dashscope:
