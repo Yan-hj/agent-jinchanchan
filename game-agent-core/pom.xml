@@ -22,5 +22,11 @@
             <groupId>com.game</groupId>
             <artifactId>game-agent-memory</artifactId>
         </dependency>
+
+        <!-- ChatClient for LLM interaction -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-client-chat</artifactId>
+        </dependency>
     </dependencies>
 </project>
