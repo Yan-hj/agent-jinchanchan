@@ -18,5 +18,33 @@
             <groupId>com.game</groupId>
             <artifactId>game-agent-common</artifactId>
         </dependency>
+
+        <!-- VectorStore interface -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-vector-store</artifactId>
+            <version>${spring-ai.version}</version>
+        </dependency>
+        <!-- ES VectorStore implementation (runtime) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-elasticsearch-store</artifactId>
+            <version>${spring-ai.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- DashScope (for RerankModel) -->
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Spring Boot auto-config (for conditional beans) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 </project>
