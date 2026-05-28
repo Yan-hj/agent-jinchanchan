@@ -8,6 +8,7 @@ import com.game.agent.ingestion.collector.WebPageCollector;
 import com.game.agent.ingestion.model.IngestStatus;
 import com.game.agent.ingestion.model.IngestTask;
 import com.game.agent.ingestion.service.IngestionService;
+import com.game.agent.ingestion.service.SocialIngestionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -24,13 +25,16 @@ public class IngestionController {
     private static final Logger log = LoggerFactory.getLogger(IngestionController.class);
 
     private final IngestionService ingestionService;
+    private final SocialIngestionService socialIngestionService;
     private final WebPageCollector webPageCollector;
     private final FileCollector fileCollector;
 
     public IngestionController(IngestionService ingestionService,
+                                SocialIngestionService socialIngestionService,
                                 WebPageCollector webPageCollector,
                                 FileCollector fileCollector) {
         this.ingestionService = ingestionService;
+        this.socialIngestionService = socialIngestionService;
         this.webPageCollector = webPageCollector;
         this.fileCollector = fileCollector;
     }
@@ -121,6 +125,50 @@ public class IngestionController {
         } catch (IllegalArgumentException e) {
             return SourceType.OFFICIAL;
         }
+    }
+
+    // ─── 社媒采集 ───
+
+    @PostMapping("/social/fetch-all")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> fetchAllSocial() {
+        var tasks = socialIngestionService.fetchAllCreators();
+        log.info("社媒全量抓取触发，生成 {} 个采集任务", tasks.size());
+        return ResponseEntity.ok(ApiResponse.success(Map.of(
+                "task_count", tasks.size(),
+                "task_ids", tasks.stream().map(IngestTask::taskId).toList()
+        )));
+    }
+
+    @PostMapping("/social/fetch/{creator}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> fetchSocialCreator(
+            @PathVariable String creator) {
+        var tasks = socialIngestionService.fetchCreator(creator);
+        return ResponseEntity.ok(ApiResponse.success(Map.of(
+                "creator", creator,
+                "task_count", tasks.size(),
+                "task_ids", tasks.stream().map(IngestTask::taskId).toList()
+        )));
+    }
+
+    @PostMapping("/social/url")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> ingestSocialUrl(
+            @RequestBody Map<String, String> body) {
+        String url = body.get("url");
+        if (url == null || url.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(ErrorCode.PARAM_INVALID, "url is required"));
+        }
+        var task = socialIngestionService.ingestSingleUrl(url);
+        return ResponseEntity.ok(ApiResponse.success(Map.of(
+                "task_id", task.taskId(),
+                "status", task.status().name(),
+                "url", url
+        )));
+    }
+
+    @GetMapping("/social/creators")
+    public ResponseEntity<ApiResponse<List<SocialIngestionService.CreatorConfig>>> listCreators() {
+        return ResponseEntity.ok(ApiResponse.success(socialIngestionService.getCreators()));
     }
 
     public record UrlImportRequest(String url, String sourceType, String tags) {}

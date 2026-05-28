@@ -70,6 +70,15 @@ game-agent:
     pipeline:
       embed-enabled: false
     task-ttl-minutes: 60
+    social:
+      confidence: 0.5
+      creators:
+        - name: "红莲"
+          uid: "4137487"
+          spaceUrl: "https://space.bilibili.com/4137487/video"
+        - name: "神超"
+          uid: "2903740"
+          spaceUrl: "https://space.bilibili.com/2903740/video"
 
 logging:
   level:
