@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
+import reactor.core.publisher.Flux;
+
 import java.util.List;
 import java.util.StringJoiner;
 
@@ -53,6 +55,57 @@ public class GameAgent {
         log.info("Agent responded in {}ms, citations={}", took, ctx.citations().size());
 
         return new AgentResponse(answer, ctx.citations());
+    }
+
+    public AgentResponse chatWithHistory(String message, String seasonTag,
+                                          List<org.springframework.ai.chat.messages.Message> history) {
+        long start = System.currentTimeMillis();
+        log.info("Agent chat with history: seasonTag={}, historySize={}", seasonTag, history.size());
+
+        String filter = seasonTag != null
+                ? DocumentMetadata.VERSION_TAG + " == '" + seasonTag + "'"
+                : null;
+
+        RetrievalResult ctx = retrievalService.retrieve(message, filter);
+        log.info("Pre-retrieved {} documents in {}ms", ctx.citations().size(), ctx.tookMs());
+
+        String contextPrompt = buildContextPrompt(ctx.citations());
+
+        String answer = chatClient.prompt()
+                .messages(history)
+                .system(s -> s.text(contextPrompt))
+                .user(message)
+                .call()
+                .content();
+
+        long took = System.currentTimeMillis() - start;
+        log.info("Agent responded in {}ms, citations={}", took, ctx.citations().size());
+
+        return new AgentResponse(answer, ctx.citations());
+    }
+
+    public Flux<String> chatStream(String message, String seasonTag) {
+        long start = System.currentTimeMillis();
+        log.info("Agent chat stream: seasonTag={}", seasonTag);
+
+        String filter = seasonTag != null
+                ? DocumentMetadata.VERSION_TAG + " == '" + seasonTag + "'"
+                : null;
+
+        RetrievalResult ctx = retrievalService.retrieve(message, filter);
+        log.info("Pre-retrieved {} documents in {}ms", ctx.citations().size(), ctx.tookMs());
+
+        String contextPrompt = buildContextPrompt(ctx.citations());
+
+        return chatClient.prompt()
+                .system(s -> s.text(contextPrompt))
+                .user(message)
+                .stream()
+                .content()
+                .doOnComplete(() -> {
+                    long took = System.currentTimeMillis() - start;
+                    log.info("Agent stream completed in {}ms, citations={}", took, ctx.citations().size());
+                });
     }
 
     private String buildContextPrompt(List<Citation> citations) {
