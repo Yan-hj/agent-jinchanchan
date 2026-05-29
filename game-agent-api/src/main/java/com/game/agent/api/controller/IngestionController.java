@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -127,6 +128,28 @@ public class IngestionController {
         }
     }
 
+    @PostMapping("/local-file")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> ingestLocalFile(
+            @RequestBody LocalFileRequest request) {
+
+        Path filePath = Path.of(request.filePath());
+        if (!filePath.toFile().exists()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(ErrorCode.PARAM_INVALID, "File not found: " + request.filePath()));
+        }
+
+        SourceType type = resolveSourceType(request.sourceType());
+        IngestTask task = ingestionService.ingestLocalFile(request.filePath(), type, request.tags());
+
+        log.info("Local file ingestion submitted: path={}, taskId={}", request.filePath(), task.taskId());
+
+        return ResponseEntity.ok(ApiResponse.success(Map.of(
+                "task_id", task.taskId(),
+                "status", task.status().name(),
+                "file_path", request.filePath()
+        )));
+    }
+
     // ─── 社媒采集 ───
 
     @PostMapping("/social/fetch-all")
@@ -172,5 +195,6 @@ public class IngestionController {
     }
 
     public record UrlImportRequest(String url, String sourceType, String tags) {}
+    public record LocalFileRequest(String filePath, String sourceType, String tags) {}
     public record TriggerRequest(String source, String priority) {}
 }

@@ -2,6 +2,7 @@ package com.game.agent.ingestion.service;
 
 import com.game.agent.common.metadata.DocumentMetadata;
 import com.game.agent.common.metadata.SourceType;
+import com.game.agent.ingestion.collector.LocalFileCollector;
 import com.game.agent.ingestion.collector.RawContent;
 import com.game.agent.ingestion.model.IngestStatus;
 import com.game.agent.ingestion.model.IngestTask;
@@ -11,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -23,10 +25,44 @@ public class IngestionService {
 
     private final IngestionPipeline pipeline;
     private final IngestionTaskManager taskManager;
+    private final LocalFileCollector localFileCollector;
 
-    public IngestionService(IngestionPipeline pipeline, IngestionTaskManager taskManager) {
+    public IngestionService(IngestionPipeline pipeline, IngestionTaskManager taskManager,
+                            LocalFileCollector localFileCollector) {
         this.pipeline = pipeline;
         this.taskManager = taskManager;
+        this.localFileCollector = localFileCollector;
+    }
+
+    public IngestTask ingestLocalFile(String filePath, SourceType sourceType, String tags) {
+        var raw = localFileCollector.collect(filePath);
+        if (raw.isEmpty()) {
+            String taskId = UUID.randomUUID().toString().replace("-", "");
+            IngestTask task = taskManager.create(taskId, sourceType.value(), filePath, filePath);
+            task = task.withError("文件读取失败或格式不支持: " + filePath);
+            taskManager.update(task);
+            return task;
+        }
+
+        String taskId = UUID.randomUUID().toString().replace("-", "");
+        String fileName = Path.of(filePath).getFileName().toString();
+        IngestTask task = taskManager.create(taskId, sourceType.value(), fileName, filePath);
+
+        pipeline.execute(
+                raw.get(),
+                buildMetadata(sourceType, null, fileName, tags),
+                progress -> taskManager.update(task.withProgress(progress))
+        ).whenComplete((documents, ex) -> {
+            if (ex != null) {
+                log.error("Ingestion failed for file: {}", filePath, ex);
+                taskManager.update(task.withError(ex.getMessage()));
+            } else {
+                log.info("Ingestion completed for file: {} ({} chunks)", filePath, documents.size());
+                taskManager.update(task.withStatus(IngestStatus.SUCCESS));
+            }
+        });
+
+        return task;
     }
 
     public IngestTask ingestUrl(String url, SourceType sourceType, String tags) {
