@@ -11,6 +11,16 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.StringJoiner;
 
+/**
+ * 对话历史蒸馏服务。
+ * <p>
+ * 当会话消息数超过阈值（默认 10 条），将最早的一批未蒸馏消息发给 LLM 生成摘要，
+ * 然后标记这些消息为 "已蒸馏"。后续 getHistory() 时，已蒸馏的消息替换为一条 SystemMessage(摘要)。
+ * <p>
+ * 作用：防止消息列表无限增长，保持 LLM 上下文窗口可控。
+ * <p>
+ * 注意：@ConditionalOnBean(ChatClient.Builder.class) — 没有 LLM 时不加载。
+ */
 @Service
 @ConditionalOnBean(ChatClient.Builder.class)
 public class DistillService {
@@ -36,6 +46,9 @@ public class DistillService {
         this.batchSize = batchSize;
     }
 
+    /**
+     * 对指定会话执行蒸馏：取最早 batchSize 条未蒸馏消息，调用 LLM 生成摘要。
+     */
     public void distill(String sessionId) {
         List<Message> nonDistilled = messageService.getNonDistilledMessages(sessionId);
         if (nonDistilled.size() < batchSize) {
@@ -59,6 +72,7 @@ public class DistillService {
             summary = "（摘要生成失败）";
         }
 
+        // 标记这 batchSize 条消息为已蒸馏，并写入摘要内容
         for (Message msg : batch) {
             messageService.markDistilled(msg.id(), summary);
         }

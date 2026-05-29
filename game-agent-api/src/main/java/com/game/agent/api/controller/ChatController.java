@@ -12,8 +12,19 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
+/**
+ * 对话 API 控制器。
+ * <p>
+ * 提供同步和流式两种对话方式，以及会话列表/历史查询。
+ * <p>
+ * 端点总览：
+ * POST   /api/v1/chat                      — 同步问答
+ * GET    /api/v1/chat/stream?message=xxx   — SSE 流式问答
+ * GET    /api/v1/chat/sessions             — 会话列表
+ * GET    /api/v1/chat/sessions/{id}        — 会话详情
+ * GET    /api/v1/chat/sessions/{id}/messages — 消息历史
+ */
 @RestController
 @RequestMapping("/api/v1/chat")
 public class ChatController {
@@ -26,6 +37,10 @@ public class ChatController {
         this.chatService = chatService;
     }
 
+    /**
+     * 同步问答。内部流程：
+     * 保存用户消息 → 检索知识库 → 调 LLM → 保存回答 → 返回 { content, citations }
+     */
     @PostMapping
     public ResponseEntity<ApiResponse<ChatResponse>> chat(@Valid @RequestBody ChatRequest request) {
         log.info("Chat request: sessionId={}, message={}", request.sessionId(), request.message());
@@ -34,6 +49,18 @@ public class ChatController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    /**
+     * SSE 流式问答。event-stream 格式：
+     * <pre>
+     * event: message
+     * data: {"text": "当前版本 T0 阵容是"}
+     *
+     * event: message
+     * data: {"text": " 命运法师"}
+     *
+     * ... 客户端持续读取直到 connection 关闭
+     * </pre>
+     */
     @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public reactor.core.publisher.Flux<String> chatStream(
             @RequestParam("message") String message,

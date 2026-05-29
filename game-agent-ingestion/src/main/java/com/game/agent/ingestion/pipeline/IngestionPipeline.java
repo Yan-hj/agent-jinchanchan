@@ -12,6 +12,17 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+/**
+ * 知识库入库流水线。
+ * <p>
+ * 接收 RawContent（文本 + metadata），依次执行：
+ * 1. 分块（DocumentChunker 按 512 字符切块）
+ * 2. Embedding（调用 DashScope text-embedding-v4 向量化，可通过配置关闭）
+ * 3. 写入 ES VectorStore
+ * <p>
+ * 整个流程是异步的（CompletableFuture），IngestionService 通过 whenComplete 监听完成状态。
+ * embedEnabled=false 时跳过 embedding 步骤，直接写入（适用于只做 BM25 全文检索的场景）。
+ */
 @Component
 public class IngestionPipeline {
 
@@ -31,11 +42,20 @@ public class IngestionPipeline {
         this.embedEnabled = embedEnabled;
     }
 
+    /**
+     * 执行入库流水线：分块 → embedding → 写入 ES。
+     *
+     * @param raw              原始内容（标题、正文、URL、作者等）
+     * @param metadata         元数据（source_type, confidence_score 等）
+     * @param progressUpdater  进度回调（用于更新任务状态）
+     * @return CompletableFuture，完成后返回入库的 Document 列表
+     */
     public CompletableFuture<List<Document>> execute(
             RawContent raw, Map<String, Object> metadata, Consumer<IngestionProgress> progressUpdater) {
 
         progressUpdater.accept(IngestionProgress.initial(1));
 
+        // 第 1 步：分块
         return CompletableFuture.supplyAsync(() -> {
             List<Document> chunks = chunker.chunk(raw, metadata);
             IngestionProgress p = IngestionProgress.initial(1)
@@ -43,6 +63,7 @@ public class IngestionPipeline {
             progressUpdater.accept(p);
             return chunks;
         }).thenComposeAsync(chunks -> {
+            // 第 2-3 步：embedding → 写入
             if (!embedEnabled || chunks.isEmpty()) {
                 IngestionProgress p = IngestionProgress.initial(1)
                         .withFetched(1).withChunked(chunks.size())
@@ -54,10 +75,14 @@ public class IngestionPipeline {
         });
     }
 
+    /**
+     * 批量 embedding 后写入 ES VectorStore。
+     */
     private CompletableFuture<List<Document>> embedAndIndex(
             List<Document> chunks, Consumer<IngestionProgress> progressUpdater) {
 
         return CompletableFuture.supplyAsync(() -> {
+            // 逐条调用 embedding 模型
             List<Document> embedded = chunks.stream()
                     .peek(doc -> {
                         float[] vector = embeddingModel.embed(doc);
@@ -72,6 +97,7 @@ public class IngestionPipeline {
                     .withEmbedded(embedded.size());
             progressUpdater.accept(p);
 
+            // 批量写入 ES
             vectorStore.add(embedded);
 
             p = p.withIndexed(embedded.size());

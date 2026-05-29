@@ -18,6 +18,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * B站内容采集器。
+ * <p>
+ * 通过 HTTP + Jsoup 抓取 B站页面（服务端渲染，不需要浏览器），提取视频标题、简介、作者等信息。
+ * 支持两种抓取方式：
+ * 1. collect(url)：抓取单个视频页
+ * 2. collectFromSpacePage(spaceUrl, creatorName)：抓取 UP 主空间页，批量解析视频列表
+ * <p>
+ * 注意：B站的空间页 HTML 结构可能会改版，如果 parseSpacePage 解析不到视频卡片需要调整 CSS 选择器。
+ */
 @Component
 public class BilibiliContentSource implements ContentSource {
 
@@ -26,6 +36,7 @@ public class BilibiliContentSource implements ContentSource {
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
     private static final String BILIBILI_HOST = "www.bilibili.com";
 
+    // 模拟浏览器 UA，避免被 B站反爬拦截
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .followRedirects(HttpClient.Redirect.NORMAL)
@@ -48,6 +59,10 @@ public class BilibiliContentSource implements ContentSource {
         return url.contains(BILIBILI_HOST) && url.contains("/video/");
     }
 
+    /**
+     * 抓取单个 B 站视频页。
+     * 解析 OG 元数据（og:title, og:description, author）提取视频信息。
+     */
     public Optional<RawContent> collect(String url) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
@@ -75,6 +90,10 @@ public class BilibiliContentSource implements ContentSource {
         }
     }
 
+    /**
+     * 抓取 UP 主空间页，解析视频列表。
+     * 适用于批量抓取场景，如 "红莲"、"神超" 等金铲铲 UP 主。
+     */
     public List<RawContent> collectFromSpacePage(String spaceUrl, String creatorName) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
@@ -97,6 +116,10 @@ public class BilibiliContentSource implements ContentSource {
         }
     }
 
+    /**
+     * 解析视频页 HTML，提取标题、描述、作者等信息。
+     * 优先使用 Open Graph 元数据，fallback 到 DOM 选择器。
+     */
     private RawContent parseVideoPage(String url, String html) {
         Document doc = Jsoup.parse(html);
 
@@ -131,6 +154,10 @@ public class BilibiliContentSource implements ContentSource {
         );
     }
 
+    /**
+     * 解析 UP 主空间页 HTML，提取视频卡片列表。
+     * 选择器支持多种空间页模板样式。
+     */
     private List<RawContent> parseSpacePage(String html, String creatorName) {
         Document doc = Jsoup.parse(html);
         List<RawContent> results = new ArrayList<>();
@@ -160,8 +187,9 @@ public class BilibiliContentSource implements ContentSource {
         return results;
     }
 
+    /** 读取 HTML meta 标签内容 */
     private String metaContent(Document doc, String property) {
-        Element meta = doc.selectFirst("meta[property=og:" + property + "]");
+        Element meta = doc.selectFirst("meta[property=" + property + "]");
         if (meta == null) {
             meta = doc.selectFirst("meta[name=" + property + "]");
         }

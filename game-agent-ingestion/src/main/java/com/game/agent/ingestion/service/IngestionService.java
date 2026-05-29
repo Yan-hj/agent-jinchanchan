@@ -18,6 +18,15 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 知识库入库服务，提供三种内容来源的统一编排：
+ * - ingestUrl：从网页 URL 抓取并入库
+ * - ingestDocument：上传文件（MultipartFile）入库
+ * - ingestLocalFile：本地磁盘文件入库
+ * <p>
+ * 三种方式最终都走 IngestionPipeline（分块 → embedding → 写入 ES VectorStore）。
+ * 每个入库请求创建一个 IngestTask，用于追踪处理进度。
+ */
 @Service
 public class IngestionService {
 
@@ -34,6 +43,10 @@ public class IngestionService {
         this.localFileCollector = localFileCollector;
     }
 
+    /**
+     * 导入本地磁盘文件（支持 .md 和 .txt）。
+     * 自动读取文件内容 → IngestionPipeline 入库。
+     */
     public IngestTask ingestLocalFile(String filePath, SourceType sourceType, String tags) {
         var raw = localFileCollector.collect(filePath);
         if (raw.isEmpty()) {
@@ -65,6 +78,10 @@ public class IngestionService {
         return task;
     }
 
+    /**
+     * 从 URL 抓取网页内容并入库。
+     * 使用 WebPageCollector 下载 HTML，Jsoup 清洗后入库。
+     */
     public IngestTask ingestUrl(String url, SourceType sourceType, String tags) {
         String taskId = UUID.randomUUID().toString().replace("-", "");
         IngestTask task = taskManager.create(taskId, sourceType.value(), url, url);
@@ -86,6 +103,9 @@ public class IngestionService {
         return task;
     }
 
+    /**
+     * 通过 MultipartFile 上传文件并入库。
+     */
     public IngestTask ingestDocument(String fileName, String content, SourceType sourceType, String tags) {
         String taskId = UUID.randomUUID().toString().replace("-", "");
         IngestTask task = taskManager.create(taskId, sourceType.value(), fileName, fileName);
@@ -113,6 +133,10 @@ public class IngestionService {
         return new RawContent(title, null, url, Instant.now(), null);
     }
 
+    /**
+     * 构建 Document metadata。
+     * 这些 metadata 会随 Document 一起存入 ES，后续检索时作为过滤条件和 Citation 来源。
+     */
     private Map<String, Object> buildMetadata(SourceType sourceType, String url, String fileName, String tags) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put(DocumentMetadata.SOURCE_TYPE, sourceType.value());
