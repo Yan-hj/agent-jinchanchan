@@ -22,6 +22,10 @@
             <groupId>com.game</groupId>
             <artifactId>game-agent-memory</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.game</groupId>
+            <artifactId>game-agent-render</artifactId>
+        </dependency>
 
         <!-- ChatClient for LLM interaction -->
         <dependency>
